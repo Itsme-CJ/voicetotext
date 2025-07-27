@@ -1,16 +1,32 @@
 <template>
-  <div class="voice-widget">
-    <button 
-      :class="['mic-btn', { listening: isListening }]"
-      @click="toggleRecognition"
-      :disabled="isListening && recognition">
-      <span v-if="!isListening">🎙️ Start Listening</span>
-      <span v-else>🛑 Stop</span>
-    </button>
-    <div class="transcription">
-      <p v-if="interim">{{ interim }}</p>
-      <p v-else-if="transcription">{{ transcription }}</p>
-      <p v-else class="hint">Click the mic to speak...</p>
+  <div class="voice-widget-container">
+    <h1 class="title">Voice to Text</h1>
+    <div class="voice-widget">
+      <button
+        class="mic-btn"
+        :class="{ listening: isListening }"
+        @click="toggleRecognition"
+        :aria-pressed="isListening.toString()"
+        aria-label="Start or stop voice input"
+      >
+        <span v-if="!isListening">🎙️</span>
+        <span v-else>🛑</span>
+      </button>
+
+      <div class="transcript">
+        <p v-if="interim" class="interim">{{ interim }}</p>
+        <p v-else-if="transcription" class="final">{{ transcription }}</p>
+        <p v-else class="hint">Tap the mic to start speaking…</p>
+      </div>
+    </div>
+
+    <div class="transcription-list" v-if="transcriptions.length">
+      <h2>Previous Transcriptions</h2>
+      <ul>
+        <li v-for="(item, index) in transcriptions" :key="index">
+          <p>{{ item }}</p>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -24,44 +40,47 @@ export default {
       interim: '',
       transcription: '',
       isListening: false,
+      transcriptions: [],
     };
   },
   mounted() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
       alert('Speech recognition not supported in this browser');
       return;
     }
-    this.recognition = new SpeechRecognition();
-    this.recognition.continuous = false;
+    this.recognition = new SR();
     this.recognition.interimResults = true;
     this.recognition.lang = 'en-US';
+    this.recognition.continuous = false;
 
     this.recognition.onstart = () => {
       this.isListening = true;
       this.interim = '';
-      this.transcription = '';
     };
     this.recognition.onresult = (e) => {
-      const transcript = Array.from(e.results)
+      const text = Array.from(e.results)
         .map(r => r[0].transcript)
         .join('');
       if (e.results[0].isFinal) {
-        this.transcription = transcript;
+        this.transcription = text;
+        this.transcriptions.push(text);
         this.interim = '';
-        this.$emit('transcription', transcript);
+        this.$emit('transcribed', text);
       } else {
-        this.interim = transcript;
+        this.interim = text;
       }
     };
-    this.recognition.onerror = () => { this.isListening = false; };
-    this.recognition.onend = () => { this.isListening = false; };
+    this.recognition.onend = () => {
+      this.isListening = false;
+    };
   },
   methods: {
     toggleRecognition() {
       if (this.isListening) {
         this.recognition.stop();
       } else {
+        this.transcription = '';
         this.recognition.start();
       }
     }
@@ -70,35 +89,87 @@ export default {
 </script>
 
 <style scoped>
-.voice-widget {
+.voice-widget-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
-  margin: 2em 0;
 }
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
 .mic-btn {
-  background: #007BFF;
-  color: white;
-  font-size: 1rem;
-  padding: 0.75em 1.5em;
+  font-size: 2.5rem;
+  width: 80px;
+  height: 80px;
   border: none;
-  border-radius: 50px;
+  border-radius: 50%;
+  background: #007bff;
+  color: #fff;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background 0.25s;
 }
+
 .mic-btn.listening {
   background: #dc3545;
-  animation: pulse 1.2s infinite;
+  animation: pulse 1s infinite;
 }
-.transcription {
-  margin-top: 1em;
-  font-size: 1.2rem;
-  min-height: 2em;
+
+.transcript {
+  margin-top: 1rem;
+  min-height: 3em;
+  font-size: 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-.hint {
-  color: #888;
-  font-style: italic;
+
+.interim { color: #999; }
+.final { color: #333; }
+.hint { color: #bbb; }
+
+.transcription-list {
+  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
+
+.transcription-list h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.transcription-list ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.transcription-list li {
+  background-color: #fff;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.transcription-list p {
+  margin: 0;
+  font-size: 1rem;
+  color: #555;
+}
+
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0.7); }
-  50% { box-shadow: 0 0 0 15px rgba(220,53,69,0); }
+  50% { box-shadow: 0 0 0 20px rgba(220,53,69,0); }
 }
 </style>
