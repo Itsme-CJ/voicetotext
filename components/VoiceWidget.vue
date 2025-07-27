@@ -9,24 +9,15 @@
         :aria-pressed="isListening.toString()"
         aria-label="Start or stop voice input"
       >
-        <span v-if="!isListening">🎙️</span>
-        <span v-else>🛑</span>
+        <span v-if="!isListening">🎙️ Start Listening</span>
+        <span v-else>🛑 Stop</span>
       </button>
 
-      <div class="transcript">
+      <div class="transcript" aria-live="polite">
         <p v-if="interim" class="interim">{{ interim }}</p>
         <p v-else-if="transcription" class="final">{{ transcription }}</p>
         <p v-else class="hint">Tap the mic to start speaking…</p>
       </div>
-    </div>
-
-    <div class="transcription-list" v-if="transcriptions.length">
-      <h2>Previous Transcriptions</h2>
-      <ul>
-        <li v-for="(item, index) in transcriptions" :key="index">
-          <p>{{ item }}</p>
-        </li>
-      </ul>
     </div>
   </div>
 </template>
@@ -39,8 +30,7 @@ export default {
       recognition: null,
       interim: '',
       transcription: '',
-      isListening: false,
-      transcriptions: [],
+      isListening: false
     };
   },
   mounted() {
@@ -49,6 +39,7 @@ export default {
       alert('Speech recognition not supported in this browser');
       return;
     }
+
     this.recognition = new SR();
     this.recognition.interimResults = true;
     this.recognition.lang = 'en-US';
@@ -58,20 +49,24 @@ export default {
       this.isListening = true;
       this.interim = '';
     };
+
     this.recognition.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join('');
+      const text = Array.from(e.results).map(r => r[0].transcript).join('');
       if (e.results[0].isFinal) {
         this.transcription = text;
-        this.transcriptions.push(text);
         this.interim = '';
         this.$emit('transcribed', text);
       } else {
         this.interim = text;
       }
     };
+
     this.recognition.onend = () => {
+      this.isListening = false;
+    };
+
+    this.recognition.onerror = (e) => {
+      console.error('Speech recognition error:', e.error);
       this.isListening = false;
     };
   },
@@ -90,86 +85,57 @@ export default {
 
 <style scoped>
 .voice-widget-container {
-  max-width: 600px;
-  margin: 2rem auto;
+  max-width: 500px;
+  margin: 3rem auto;
   padding: 2rem;
   background-color: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
   text-align: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .title {
   font-size: 2rem;
-  margin-bottom: 1.5rem;
-  color: #333;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  color: #222;
 }
 
 .mic-btn {
-  font-size: 2.5rem;
-  width: 80px;
-  height: 80px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 1rem 1.5rem;
+  background-color: #007bff;
+  color: white;
   border: none;
-  border-radius: 50%;
-  background: #007bff;
-  color: #fff;
+  border-radius: 32px;
   cursor: pointer;
-  transition: background 0.25s;
+  transition: background-color 0.25s ease;
 }
 
 .mic-btn.listening {
-  background: #dc3545;
+  background-color: #dc3545;
   animation: pulse 1s infinite;
 }
 
 .transcript {
-  margin-top: 1rem;
-  min-height: 3em;
+  margin-top: 1.5rem;
   font-size: 1.25rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  font-weight: 400;
+  color: #333;
+  min-height: 2em;
 }
 
 .interim { color: #999; }
 .final { color: #333; }
 .hint { color: #bbb; }
 
-.transcription-list {
-  margin-top: 2rem;
-  padding: 1rem;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.transcription-list h2 {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  color: #333;
-}
-
-.transcription-list ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-.transcription-list li {
-  background-color: #fff;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.transcription-list p {
-  margin: 0;
-  font-size: 1rem;
-  color: #555;
-}
-
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220,53,69,0.7); }
-  50% { box-shadow: 0 0 0 20px rgba(220,53,69,0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+  50% { box-shadow: 0 0 0 12px rgba(220, 53, 69, 0); }
 }
 </style>
